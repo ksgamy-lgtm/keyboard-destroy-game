@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>키캡 파괴왕</title>
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    -webkit-tap-highlight-color:transparent;
+    user-select:none;
+}
+body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+    background:linear-gradient(180deg,#0f172a,#1e293b);
+    color:#fff;
+    min-height:100vh;
+    overflow:hidden;
+}
+#app{
+    width:100%;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+.header{
+    padding:10px;
+    text-align:center;
+}
+.title{
+    font-size:clamp(20px,5vw,32px);
+    font-weight:700;
+}
+.info{
+    margin-top:8px;
+    display:flex;
+    justify-content:center;
+    gap:10px;
+    flex-wrap:wrap;
+}
+.badge{
+    background:rgba(255,255,255,.12);
+    padding:8px 12px;
+    border-radius:999px;
+    font-size:14px;
+}
+.game-area{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+    padding:10px;
+}
+.office-worker{
+    font-size:min(18vw,90px);
+    margin-bottom:10px;
+    transition:.12s;
+}
+.office-worker.hit{
+    transform:scale(1.2) rotate(-8deg);
+}
+.keyboard{
+    width:min(95vw,700px);
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:8px;
+}
+.key{
+    aspect-ratio:1;
+    background:#e2e8f0;
+    border-radius:14px;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    color:#111827;
+    font-weight:700;
+    font-size:clamp(18px,5vw,28px);
+    border-bottom:6px solid #94a3b8;
+    position:relative;
+    overflow:hidden;
+    transition:.15s;
+    touch-action:manipulation;
+}
+.key.active{
+    background:#facc15;
+    transform:scale(1.06);
+}
+.key.broken{
+    background:#475569;
+    color:#fff;
+    border-bottom:0;
+    transform:scale(.85);
+}
+.key.broken::after{
+    content:"💥";
+    position:absolute;
+    font-size:26px;
+}
+.controls{
+    padding:12px;
+    text-align:center;
+}
+button{
+    border:none;
+    background:#22c55e;
+    color:white;
+    padding:12px 20px;
+    border-radius:12px;
+    font-size:16px;
+    font-weight:700;
+}
+.overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,.8);
+    display:none;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+}
+.panel{
+    width:min(95vw,500px);
+    background:#111827;
+    border-radius:18px;
+    padding:20px;
+}
+.panel h2{
+    text-align:center;
+    margin-bottom:15px;
+}
+.result{
+    text-align:center;
+    font-size:24px;
+    margin-bottom:15px;
+}
+input{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:10px;
+    margin-bottom:10px;
+}
+.rank-title{
+    margin-top:15px;
+    margin-bottom:8px;
+}
+.rank-list{
+    max-height:220px;
+    overflow:auto;
+}
+.rank-item{
+    display:flex;
+    justify-content:space-between;
+    padding:8px;
+    border-bottom:1px solid rgba(255,255,255,.08);
+}
+.drag-area{
+    margin-top:12px;
+    width:min(90vw,500px);
+}
+.drag-track{
+    width:100%;
+    height:24px;
+    border-radius:999px;
+    background:#334155;
+    position:relative;
+}
+.drag-thumb{
+    width:60px;
+    height:60px;
+    border-radius:50%;
+    background:#ef4444;
+    position:absolute;
+    left:0;
+    top:-18px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:28px;
+    touch-action:none;
+}
+.hint{
+    margin-top:8px;
+    text-align:center;
+    font-size:13px;
+    opacity:.8;
+}
+</style>
+</head>
+<body>
+<div id="app">
+    <div class="header">
+        <div class="title">⌨️ 키캡 파괴왕</div>
+        <div class="info">
+            <div class="badge">남은 키캡: <span id="remain">15</span></div>
+            <div class="badge">시간: <span id="timer">0.00</span>초</div>
+        </div>
+    </div>
+
+    <div class="game-area">
+        <div id="worker" class="office-worker">👨‍💼</div>
+        <div id="keyboard" class="keyboard"></div>
+
+        <div class="drag-area">
+            <div class="drag-track" id="track">
+                <div class="drag-thumb" id="thumb">🔨</div>
+            </div>
+            <div class="hint">망치를 좌우로 드래그해 분노 게이지를 충전하면 다음 타격이 강화됩니다.</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button id="startBtn">게임 시작</button>
+    </div>
+</div>
+
+<div class="overlay" id="overlay">
+    <div class="panel">
+        <h2>🎉 완료!</h2>
+        <div class="result" id="finalTime"></div>
+
+        <input type="text" id="playerName" maxlength="12" placeholder="닉네임 입력">
+
+        <button style="width:100%;" id="saveBtn">랭킹 등록</button>
+
+        <div class="rank-title">🏆 TOP 10</div>
+        <div class="rank-list" id="ranking"></div>
+
+        <button style="width:100%;margin-top:10px;background:#3b82f6;" id="restartBtn">다시하기</button>
+    </div>
+</div>
+
+<script>
+const keyboard = document.getElementById("keyboard");
+const remainEl = document.getElementById("remain");
+const timerEl = document.getElementById("timer");
+const worker = document.getElementById("worker");
+const overlay = document.getElementById("overlay");
+
+const keys = [];
+let activeKey = null;
+let broken = 0;
+let total = 15;
+let startTime = 0;
+let timerLoop = null;
+let playing = false;
+let rage = 0;
+
+const keyLabels = [
+    "Q","W","E","R","T",
+    "A","S","D","F","G",
+    "Z","X","C","V","B"
+];
+
+function createBoard(){
+    keyboard.innerHTML = "";
+    keys.length = 0;
+
+    keyLabels.forEach((txt,i)=>{
+        const div = document.createElement("div");
+        div.className = "key";
+        div.textContent = txt;
+        div.dataset.index = i;
+
+        div.addEventListener("click", ()=>hitKey(div));
+
+        keyboard.appendChild(div);
+        keys.push(div);
+    });
+
+    broken = 0;
+    remainEl.textContent = total;
+}
+
+function chooseTarget(){
+    if(broken >= total){
+        finishGame();
+        return;
+    }
+
+    if(activeKey) activeKey.classList.remove("active");
+
+    const available = keys.filter(k=>!k.classList.contains("broken"));
+    activeKey = available[Math.floor(Math.random()*available.length)];
+    activeKey.classList.add("active");
+}
+
+function hitKey(key){
+    if(!playing) return;
+    if(key !== activeKey) return;
+
+    worker.classList.add("hit");
+    setTimeout(()=>worker.classList.remove("hit"),120);
+
+    key.classList.remove("active");
+    key.classList.add("broken");
+
+    const damage = rage >= 100 ? 2 : 1;
+    rage = 0;
+
+    broken++;
+
+    if(damage === 2){
+        const extra = keys.find(k=>!k.classList.contains("broken"));
+        if(extra){
+            extra.classList.add("broken");
+            broken++;
+        }
+    }
+
+    remainEl.textContent = Math.max(0,total-broken);
+
+    setTimeout(chooseTarget,150);
+}
+
+function startGame(){
+    createBoard();
+    playing = true;
+    startTime = performance.now();
+
+    clearInterval(timerLoop);
+    timerLoop = setInterval(()=>{
+        timerEl.textContent =
+            ((performance.now()-startTime)/1000).toFixed(2);
+    },10);
+
+    chooseTarget();
+}
+
+function finishGame(){
+    playing = false;
+    clearInterval(timerLoop);
+
+    const time = ((performance.now()-startTime)/1000).toFixed(2);
+    document.getElementById("finalTime").textContent =
+        `${time}초`;
+
+    overlay.style.display = "flex";
+}
+
+function loadRanking(){
+    const data = JSON.parse(localStorage.getItem("keycap_ranking")||"[]");
+
+    const ranking = document.getElementById("ranking");
+    ranking.innerHTML = "";
+
+    data.forEach((r,i)=>{
+        const row = document.createElement("div");
+        row.className = "rank-item";
+        row.innerHTML =
+            `<span>${i+1}. ${r.name}</span>
+             <span>${r.time}초</span>`;
+        ranking.appendChild(row);
+    });
+}
+
+document.getElementById("saveBtn").onclick = ()=>{
+    const name =
+        document.getElementById("playerName").value.trim() || "익명";
+
+    const time =
+        parseFloat(document.getElementById("finalTime").textContent);
+
+    let ranking =
+        JSON.parse(localStorage.getItem("keycap_ranking")||"[]");
+
+    ranking.push({name,time});
+
+    ranking.sort((a,b)=>a.time-b.time);
+    ranking = ranking.slice(0,10);
+
+    localStorage.setItem(
+        "keycap_ranking",
+        JSON.stringify(ranking)
+    );
+
+    loadRanking();
+};
+
+document.getElementById("restartBtn").onclick = ()=>{
+    overlay.style.display = "none";
+    timerEl.textContent = "0.00";
+    document.getElementById("playerName").value = "";
+    startGame();
+};
+
+document.getElementById("startBtn").onclick = ()=>{
+    startGame();
+};
+
+loadRanking();
+createBoard();
+
+const thumb = document.getElementById("thumb");
+const track = document.getElementById("track");
+
+let dragging = false;
+
+function updateDrag(clientX){
+    const rect = track.getBoundingClientRect();
+
+    let x = clientX - rect.left;
+    x = Math.max(0, Math.min(rect.width-60, x));
+
+    thumb.style.left = x + "px";
+
+    rage += 2;
+
+    if(rage > 100){
+        rage = 100;
+        thumb.textContent = "🔥";
+    }else{
+        thumb.textContent = "🔨";
+    }
+}
+
+thumb.addEventListener("pointerdown",()=>{
+    dragging = true;
+});
+
+window.addEventListener("pointermove",(e)=>{
+    if(!dragging) return;
+    updateDrag(e.clientX);
+});
+
+window.addEventListener("pointerup",()=>{
+    dragging = false;
+});
+</script>
+</body>
+</html>
